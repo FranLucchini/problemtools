@@ -92,6 +92,8 @@ class SourceCode(Program):
         command = self.language.compile.format(**self.__get_substitution())
 
         logging.debug('compile command: %s', command)
+
+        ##Run program, finally
         status = os.system(command + ' > /dev/null 2> /dev/null')
 
         if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:

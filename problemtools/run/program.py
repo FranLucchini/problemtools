@@ -40,7 +40,7 @@ class Program(object):
                                           infile, outfile, errfile, timelim)
 
         self.runtime = max(self.runtime, runtime)
-
+        self.name = 'Program'
         return status, runtime
 
 

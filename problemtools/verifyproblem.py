@@ -43,9 +43,9 @@ class SubmissionResult:
         self.ac_runtime = -1.0
         self.ac_runtime_testcase = None
 
-
+    #Calls GRADE
     @staticmethod
-    def aggregate_results(self, sub_results, policy, grade=None):
+    def aggregate_results(self, sub_results, policy, grade=None, testcase=None):
         res = SubmissionResult(None)
 
         for r in sub_results:
@@ -66,7 +66,7 @@ class SubmissionResult:
                 rejection = min(sub_results, key=lambda r: verdict_value[r.verdict])
             # else policy is '' and we should grade the results
             else:
-                grade = lambda x: self._problem.graders.grade(x, self)
+                grade = lambda x: self._problem.graders.grade(x, self, testcase = testcase)
 
         if rejection is None:
             if grade is not None:
@@ -188,8 +188,8 @@ class TestCase(ProblemAspect):
         #    msg = 'Running %s on %s...' % (sub, self)
         #    sys.stdout.write('%s' % msg)
         #    sys.stdout.flush()
-        self.msg('Running %s on %s...' % (sub, self))
-
+        self.msg('Running %s on %s...!!' % (sub, self))
+        testcase = str(self)
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
@@ -216,8 +216,8 @@ class TestCase(ProblemAspect):
         if res2.verdict == 'AC':
             res2.ac_runtime = res2.runtime
             res2.ac_runtime_testcase = res2.runtime_testcase
-        self.info('Test file result: %s)' % (res1))
-        return (res1, res2)
+        self.msg('Test file result: %s)' % (res1))
+        return (res1, res2, testcase)
 
     def get_all_testcases(self):
         return [self]
@@ -359,30 +359,33 @@ class TestCaseGroup(ProblemAspect):
 
         return self._check_res
 
-
-    def compute_result(self, sub_results, probtype, on_reject, shadow_result=False):
+    #Calls GRADE
+    def compute_result(self, sub_results, probtype, on_reject, testcase, shadow_result=False):
         grade = None
         if probtype == 'scoring':
             grade = lambda x: self._problem.graders.grade(x, self, shadow_result)
-        return SubmissionResult.aggregate_results(self, sub_results, on_reject, grade=grade)
+        return SubmissionResult.aggregate_results(self, sub_results, on_reject, grade=grade, testcase=testcase)
 
-
+    #Not this one!
     def run_submission(self, sub, args, timelim_low, timelim_high):
-        self.info('Running on %s' % self)
+        self.msg('Running on %s' % self)
         subres1 = []
         subres2 = []
         probtype = self._problem.config.get('type')
         on_reject = self._problem.config.get('grading')['on_reject']
+        testcase = ''
         for subdata in self._items:
             if not subdata.matches_filter(args.data_filter):
                 continue
-            (r1, r2) = subdata.run_submission(sub, args, timelim_low, timelim_high)
+            (r1, r2, testcase) = subdata.run_submission(sub, args, timelim_low, timelim_high)
+            self.msg('subres1 %s and subres2 %s'%(r1,r2))
             subres1.append(r1)
             subres2.append(r2)
+            comp1 = self.compute_result(subres1, probtype, on_reject, testcase=testcase)
+            comp2 = self.compute_result(subres2, probtype, on_reject, testcase=testcase, shadow_result=True)
             if on_reject == 'first_error' and r2.verdict != 'AC':
                 break
-        return (self.compute_result(subres1, probtype, on_reject),
-                self.compute_result(subres2, probtype, on_reject, shadow_result=True))
+        return (comp1,comp2, testcase)
 
     def all_datasets(self):
         res = []
@@ -747,7 +750,7 @@ class Graders(ProblemAspect):
                 self.error('Compile error for %s' % grader)
         return self._check_res
 
-    def grade(self, sub_results, testcasegroup, shadow_result=False):
+    def grade(self, sub_results, testcasegroup, shadow_result=False, testcase=None):
 
         if testcasegroup.config['grading'] == 'default':
             graders = [self._default_grader]
@@ -758,8 +761,8 @@ class Graders(ProblemAspect):
         grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
-
-        self.msg('Grading %d results on %s:\n%s' % (len(sub_results), testcasegroup, grader_input))
+        self.msg('\n\n======================')
+        self.msg('Grading %d results on %s:\n%s' % (len(sub_results), testcase, grader_input))
         #self.msg('Grader flags: %s' % (testcasegroup.config.get('grader_flags')))
 
         for grader in graders:
@@ -778,13 +781,13 @@ class Graders(ProblemAspect):
                 os.remove(infile)
                 os.remove(outfile)
                 if not os.WIFEXITED(status):
-                    self.error('Judge error: %s crashed' % grader)
-                    self.debug('Grader input:\n%s' % grader_input)
+                    self.msg('Judge error: %s crashed' % grader)
+                    self.msg('Grader input:\n%s' % grader_input)
                     return SubmissionResult('JE', score=0.0)
                 if not re.match(grader_output_re, grader_output):
-                    self.error('Judge error: invalid format of grader output')
-                    self.debug('Output must match: "%s"' % grader_output_re)
-                    self.debug('Output was: "%s"' % grader_output)
+                    self.msg('Judge error: invalid format of grader output')
+                    self.msg('Output must match: "%s"' % grader_output_re)
+                    self.msg('Output was: "%s"' % grader_output)
                     return SubmissionResult('JE', score=0.0)
 
                 verdict, score = grader_output.split()
@@ -792,8 +795,8 @@ class Graders(ProblemAspect):
         # TODO: check that all graders give same result
 
         if not shadow_result:
-            self.msg('Grade on %s is %s (%s)' % (testcasegroup, verdict, score))
-
+            self.msg('Grade on %s is %s (%s)' % (testcase, verdict, score))
+            self.msg('======================\n\n')
         return (verdict, score)
 
 
@@ -989,7 +992,7 @@ class Submissions(ProblemAspect):
         return 'submissions'
 
     def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
-        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
+        (result1, result2, testcase) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
 
         if result1.verdict != result2.verdict:
             self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub, timelim_low, result1.verdict, timelim_high, result2.verdict))
@@ -1000,7 +1003,7 @@ class Submissions(ProblemAspect):
         elif result2.verdict == expected_verdict:
             self.msg('   %s submission %s OK with extra time: %s' % (expected_verdict, sub, result2))
         else:
-            self.error('%s submission %s got %s' % (expected_verdict, sub, result1))
+            self.msg('%s submission %s got %s' % (expected_verdict, sub, result1))
 
         self.msg('')
 
@@ -1029,7 +1032,7 @@ class Submissions(ProblemAspect):
                 self.error('Require at least one "%s" submission' % verdict[1])
 
             runtimes = []
-
+            self.msg('sub list %s'%(len(self._submissions[acr])))
             for sub in self._submissions[acr]:
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
                     self.info('Check %s submission %s' % (acr, sub))

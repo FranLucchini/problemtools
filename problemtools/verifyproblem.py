@@ -188,7 +188,7 @@ class TestCase(ProblemAspect):
         #    msg = 'Running %s on %s...' % (sub, self)
         #    sys.stdout.write('%s' % msg)
         #    sys.stdout.flush()
-        self.msg('Running %s on %s...!!' % (sub, self))
+        #self.msg('Running %s on %s...' % (sub, self))
         testcase = str(self)
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
@@ -216,6 +216,7 @@ class TestCase(ProblemAspect):
         if res2.verdict == 'AC':
             res2.ac_runtime = res2.runtime
             res2.ac_runtime_testcase = res2.runtime_testcase
+        #MAIN PRINT
         self.msg('Test file result: %s)' % (res1))
         return (res1, res2, testcase)
 
@@ -368,7 +369,7 @@ class TestCaseGroup(ProblemAspect):
 
     #Not this one!
     def run_submission(self, sub, args, timelim_low, timelim_high):
-        self.msg('Running on %s' % self)
+        #self.msg('Running on %s' % self)
         subres1 = []
         subres2 = []
         probtype = self._problem.config.get('type')
@@ -378,7 +379,7 @@ class TestCaseGroup(ProblemAspect):
             if not subdata.matches_filter(args.data_filter):
                 continue
             (r1, r2, testcase) = subdata.run_submission(sub, args, timelim_low, timelim_high)
-            self.msg('subres1 %s and subres2 %s'%(r1,r2))
+            #self.msg('subres1 %s and subres2 %s'%(r1,r2))
             subres1.append(r1)
             subres2.append(r2)
             comp1 = self.compute_result(subres1, probtype, on_reject, testcase=testcase)
@@ -761,8 +762,8 @@ class Graders(ProblemAspect):
         grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
-        self.msg('\n\n======================')
-        self.msg('Grading %d results on %s:\n%s' % (len(sub_results), testcase, grader_input))
+        #self.msg('\n\n======================')
+        #self.msg('Grading %s:\n%s' % (testcase, grader_input))
         #self.msg('Grader flags: %s' % (testcasegroup.config.get('grader_flags')))
 
         for grader in graders:
@@ -781,22 +782,22 @@ class Graders(ProblemAspect):
                 os.remove(infile)
                 os.remove(outfile)
                 if not os.WIFEXITED(status):
-                    self.msg('Judge error: %s crashed' % grader)
-                    self.msg('Grader input:\n%s' % grader_input)
+                    self.info('Judge error: %s crashed' % grader)
+                    self.info('Grader input:\n%s' % grader_input)
                     return SubmissionResult('JE', score=0.0)
                 if not re.match(grader_output_re, grader_output):
-                    self.msg('Judge error: invalid format of grader output')
-                    self.msg('Output must match: "%s"' % grader_output_re)
-                    self.msg('Output was: "%s"' % grader_output)
+                    self.info('Judge error: invalid format of grader output')
+                    self.info('Output must match: "%s"' % grader_output_re)
+                    self.info('Output was: "%s"' % grader_output)
                     return SubmissionResult('JE', score=0.0)
 
                 verdict, score = grader_output.split()
                 score = float(score)
         # TODO: check that all graders give same result
 
-        if not shadow_result:
-            self.msg('Grade on %s is %s (%s)' % (testcase, verdict, score))
-            self.msg('======================\n\n')
+        #if not shadow_result:
+            #self.msg('Grade on %s is %s (%s)' % (testcase, verdict, score))
+            #self.msg('======================\n\n')
         return (verdict, score)
 
 
@@ -992,21 +993,20 @@ class Submissions(ProblemAspect):
         return 'submissions'
 
     def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
+        self.msg('Running %s' % (sub))
         (result1, result2, testcase) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
-
         if result1.verdict != result2.verdict:
             self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub, timelim_low, result1.verdict, timelim_high, result2.verdict))
 
         if result1.verdict == expected_verdict:
-            self.msg('   %s submission %s OK: %s' % (expected_verdict, sub, result1))
+            self.info('%s submission %s OK: %s' % (expected_verdict, sub, result1))
 
         elif result2.verdict == expected_verdict:
-            self.msg('   %s submission %s OK with extra time: %s' % (expected_verdict, sub, result2))
+            self.warning('%s submission %s OK with extra time: %s' % (expected_verdict, sub, result2))
         else:
-            self.msg('%s submission %s got %s' % (expected_verdict, sub, result1))
+            self.error('%s submission %s got %s' % (expected_verdict, sub, result1))
 
-        self.msg('')
-
+        self.msg('\n')
         return result1
 
     def check(self, args):
@@ -1032,7 +1032,6 @@ class Submissions(ProblemAspect):
                 self.error('Require at least one "%s" submission' % verdict[1])
 
             runtimes = []
-            self.msg('sub list %s'%(len(self._submissions[acr])))
             for sub in self._submissions[acr]:
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
                     self.info('Check %s submission %s' % (acr, sub))
@@ -1127,7 +1126,7 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
 
             for part in args.parts:
-                self.msg('Checking %s' % part)
+                self.info('Checking %s' % part)
                 for item in part_mapping[part]:
                     if part == 'statement':
                         pass
@@ -1177,7 +1176,7 @@ def main():
                         format=fmt,
                         level=eval("logging." + args.loglevel.upper()))
 
-    print 'Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir))
+    #print 'Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir))
     with Problem(args.problemdir) as prob:
         [errors, warnings] = prob.check(args)
         print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)

@@ -9,7 +9,8 @@ limits:
 ## At least one of author, source, or rights_owner must be provided.
 ##
 ## Author of the problem (default: null)
-# author:
+name: Mult
+author: Francesca
 
 ## Where the problem was first used (default: null)
 source: Kattis

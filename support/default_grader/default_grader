@@ -19,6 +19,7 @@ args = parser.parse_args()
 agg = aggregators[args.aggregation]
 
 try:
+    # Reads from stdin
     data = sys.stdin.read().split()
     scores = map(float, data[1::2])
     print 'AC %f' % agg(scores)
